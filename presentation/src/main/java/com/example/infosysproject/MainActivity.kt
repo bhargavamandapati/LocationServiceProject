@@ -1,5 +1,6 @@
 package com.example.infosysproject
 
+import LocationDataViewModel
 import android.os.Bundle
 import android.view.View
 import android.widget.ProgressBar
@@ -37,7 +38,7 @@ class MainActivity : AppCompatActivity(), LocationDataView {
     private lateinit var progressBar: ProgressBar
     private lateinit var poiText: TextView
     private lateinit var historyText: TextView
-
+    private lateinit var locationText: TextView
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -45,6 +46,8 @@ class MainActivity : AppCompatActivity(), LocationDataView {
         progressBar = findViewById(R.id.progress)
         poiText = findViewById(R.id.poi_list)
         historyText = findViewById(R.id.history_list)
+        locationText = findViewById(R.id.location_text)
+
 
         viewModel.loading.observe(this) { isLoading ->
             showLoading(isLoading == true)
@@ -52,6 +55,11 @@ class MainActivity : AppCompatActivity(), LocationDataView {
 
         viewModel.pois.observe(this) { pois ->
             displayPointsOfInterest(pois.orEmpty())
+        }
+
+        // ADDED: Observer for the real-time car location
+        viewModel.carLocation.observe(this) { location ->
+            locationText.text = "Live Location: Lat ${"%.4f".format(location.latitude)}, Lon ${"%.4f".format(location.longitude)}"
         }
 
         viewModel.error.observe(this) { message ->
@@ -66,7 +74,8 @@ class MainActivity : AppCompatActivity(), LocationDataView {
             }
         }
 
-        viewModel.loadData()
+        // CORRECTED the method name from loadData() to loadInitialData()
+        viewModel.loadInitialData()
     }
 
     override fun displayPointsOfInterest(pois: List<PointOfInterest>) {

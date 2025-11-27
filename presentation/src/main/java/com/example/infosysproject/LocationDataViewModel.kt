@@ -1,10 +1,9 @@
-package com.example.infosysproject
-
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.example.infosysproject.domain.model.CarLocation
 import com.example.infosysproject.domain.model.HistoricalData
 import com.example.infosysproject.domain.model.PointOfInterest
 import com.example.infosysproject.domain.service.LocationDataService
@@ -12,6 +11,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -22,6 +22,9 @@ class LocationDataViewModel(
     private val _pois = MutableLiveData<List<PointOfInterest>>()
     val pois: LiveData<List<PointOfInterest>> = _pois
 
+    private val _carLocation = MutableLiveData<CarLocation>()
+    val carLocation: LiveData<CarLocation> = _carLocation
+
     private val _loading = MutableLiveData<Boolean>()
     val loading: LiveData<Boolean> = _loading
 
@@ -31,21 +34,39 @@ class LocationDataViewModel(
     private val _history = MutableStateFlow<List<HistoricalData>>(emptyList())
     val history: StateFlow<List<HistoricalData>> = _history.asStateFlow()
 
-    fun loadData() {
+    init {
+        startLocationUpdates()
+        loadInitialData()
+    }
+
+    private fun startLocationUpdates() {
+        viewModelScope.launch {
+            service.getCarLocationFlow()
+                .catch { e ->
+                    _error.value = "Location stream failed: ${e.message}"
+                }
+                .collect { location ->
+                    _carLocation.value = location
+                }
+        }
+    }
+
+    fun loadInitialData() {
         viewModelScope.launch {
             _loading.value = true
             _error.value = null
             try {
-                val pois = withContext(Dispatchers.Default) {
+                val poisData = withContext(Dispatchers.Default) {
                     service.getFilteredPoisForCurrentLocation()
                 }
-                _pois.value = pois
+                _pois.value = poisData
+
                 val historyData = withContext(Dispatchers.Default) {
                     service.getHistoricalData()
                 }
                 _history.value = historyData
             } catch (e: Exception) {
-                _error.value = e.message ?: "Unexpected error"
+                _error.value = e.message ?: "Unexpected error during initial load"
             } finally {
                 _loading.value = false
             }
