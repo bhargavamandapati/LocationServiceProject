@@ -1,10 +1,24 @@
 package com.example.infosysproject
 
 import android.os.Bundle
-import androidx.activity.enableEdgeToEdge
+import android.view.View
+import android.widget.ProgressBar
+import android.widget.TextView
+import android.widget.Toast
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import com.example.infosysproject.data.repository.InMemoryHistoryRepository
+import com.example.infosysproject.data.source.MockCarInfoProvider
+import com.example.infosysproject.data.source.MockPoiDataSource
+import com.example.infosysproject.domain.factory.FilterFactory
+import com.example.infosysproject.domain.filter.DefaultFilter
+import com.example.infosysproject.domain.model.HistoricalData
+import com.example.infosysproject.domain.model.PointOfInterest
+import com.example.infosysproject.domain.service.LocationDataService
+import kotlinx.coroutines.launch
 
 class MainActivity : AppCompatActivity(), LocationDataView {
 
@@ -16,22 +30,43 @@ class MainActivity : AppCompatActivity(), LocationDataView {
         LocationDataService(carInfo, poiSource, filterFactory, history)
     }
 
+    private val viewModel: LocationDataViewModel by viewModels {
+        LocationDataViewModel.Factory(service)
+    }
+
+    private lateinit var progressBar: ProgressBar
+    private lateinit var poiText: TextView
+    private lateinit var historyText: TextView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
         setContentView(R.layout.activity_main)
 
         progressBar = findViewById(R.id.progress)
         poiText = findViewById(R.id.poi_list)
         historyText = findViewById(R.id.history_list)
 
-        showLoading(true)
-        val pois = service.getFilteredPoisForCurrentLocation()
-        val history = service.getHistoricalData()
-        showLoading(false)
+        viewModel.loading.observe(this) { isLoading ->
+            showLoading(isLoading == true)
+        }
 
-        displayPointsOfInterest(pois)
-        displayHistory(service.getHistoricalData())
+        viewModel.pois.observe(this) { pois ->
+            displayPointsOfInterest(pois.orEmpty())
+        }
+
+        viewModel.error.observe(this) { message ->
+            message?.let { showError(it) }
+        }
+
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.history.collect { history ->
+                    displayHistory(history)
+                }
+            }
+        }
+
+        viewModel.loadData()
     }
 
     override fun displayPointsOfInterest(pois: List<PointOfInterest>) {

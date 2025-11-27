@@ -1,19 +1,14 @@
 plugins {
-    alias(libs.plugins.android.application)
+    id("com.android.library")
     alias(libs.plugins.kotlin.android)
 }
 
 android {
     namespace = "com.example.infosysproject.data"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "com.example.infosysproject.data"
-        minSdk = 33
-        targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
-
+        minSdk = 24
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
